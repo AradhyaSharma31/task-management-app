@@ -1,22 +1,37 @@
-# 🗂️ System File Indexer
+# 📝 Task Management System
 
-A Python-based backend system that **indexes, stores, and searches files** from your computer using PostgreSQL as the database.  
-It can scan directories, store metadata like file name, size, extension, and modified date, and provide fast search queries.
+A comprehensive desktop task management application built with Python, Tkinter, and PostgreSQL. Features a modern GUI with advanced sorting algorithms and efficient database operations.
 
----
+## ✨ Features
 
-## ⚙️ Features
+### 🎯 Core Functionality
+- **Add Tasks**: Create new tasks with title, description, and due date
+- **Edit Tasks**: Modify existing task details
+- **Delete Tasks**: Remove tasks with confirmation
+- **Mark Complete**: Update task status to completed
+- **Date Picker**: Visual calendar for due date selection
 
-- Recursively scans directories for files
-- Stores file metadata in PostgreSQL
-- Supports searching by:
-  - File name (partial match)
-  - File extension
-  - File size range
-- Auto-handles duplicate paths
-- Simple command-line interface
+### 🔍 Advanced Features
+- **Smart Sorting**: Merge sort algorithm for efficient task organization
+- **Multiple Sort Options**: Sort by due date, creation date, title, status, or ID
+- **Search Functionality**: Find tasks by keyword in title or description
+- **Task Filtering**: View pending, completed, overdue, or upcoming tasks
+- **Statistics Dashboard**: Track completion rates and task metrics
 
----
+### 🎨 User Interface
+- **Modern GUI**: Clean, intuitive Tkinter-based interface
+- **Responsive Design**: Adapts to different screen sizes
+- **Visual Feedback**: Color-coded status and clear notifications
+- **Easy Navigation**: Simple controls and keyboard shortcuts
 
-## 🧩 Project Structure
+## 🛠️ Installation
 
+### Prerequisites
+- Python 3.8 or higher
+- PostgreSQL database
+- pip (Python package manager)
+
+### Step 1: Clone the Repository
+```bash
+git clone <repository-url>
+cd task-management-application
