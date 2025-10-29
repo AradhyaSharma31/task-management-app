@@ -10,7 +10,7 @@ def format_date(date_str):
     try:
         return datetime.strptime(date_str, "%Y-%m-%d").date()
     except ValueError:
-        print(f"⚠️ Invalid date format: {date_str}. Use YYYY-MM-DD.")
+        print(f"Invalid date format: {date_str}. Use YYYY-MM-DD.")
         return None
 
 def format_datetime(dt):

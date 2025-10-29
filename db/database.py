@@ -43,7 +43,7 @@ def init_db():
                     created_at TIMESTAMP DEFAULT NOW()
                 )
             """)
-            print("✅ Tasks table created.")
+            print("Tasks table created.")
         else:
             # Table exists, check for missing columns
             required_columns = ['id', 'title', 'description', 'status', 'due_date', 'created_at']

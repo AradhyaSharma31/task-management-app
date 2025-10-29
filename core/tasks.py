@@ -1,6 +1,6 @@
 import sys
 import os
-# Add project root to path for standalone execution
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from db.database import get_connection
@@ -29,10 +29,10 @@ def add_task(title, description=None, due_date=None):
         )
         task_id = cur.fetchone()[0]
         conn.commit()
-        print(f"✅ Task added with ID: {task_id}")
+        print(f"Task added with ID: {task_id}")
         return task_id
     except Exception as e:
-        print(f"❌ Error adding task: {e}")
+        print(f"Error adding task: {e}")
         if conn:
             conn.rollback()
         return None
@@ -73,10 +73,10 @@ def list_tasks(status=None, sort_by='due_date', ascending=True):
         # Sort tasks using our merge sort algorithm
         sorted_tasks = sort_tasks(tasks_list, sort_by=sort_by, ascending=ascending)
         
-        print(f"✅ Retrieved {len(sorted_tasks)} tasks sorted by {sort_by} ({'ascending' if ascending else 'descending'})")
+        print(f"Retrieved {len(sorted_tasks)} tasks sorted by {sort_by} ({'ascending' if ascending else 'descending'})")
         return sorted_tasks
     except Exception as e:
-        print(f"❌ Error listing tasks: {e}")
+        print(f"Error listing tasks: {e}")
         return []
     finally:
         if cur:
@@ -105,12 +105,12 @@ def get_task(task_id):
         )
         task = cur.fetchone()
         if task:
-            print(f"✅ Retrieved task {task_id}")
+            print(f"Retrieved task {task_id}")
         else:
-            print(f"⚠️ Task {task_id} not found")
+            print(f"Task {task_id} not found")
         return task
     except Exception as e:
-        print(f"❌ Error retrieving task {task_id}: {e}")
+        print(f"Error retrieving task {task_id}: {e}")
         return None
     finally:
         if cur:
@@ -155,17 +155,17 @@ def update_task(task_id, title=None, description=None, status=None, due_date=Non
             params.append(due_date)
             
         if not updates:
-            print("⚠️ No fields to update.")
+            print("No fields to update.")
             return False
             
         params.append(task_id)
         query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = %s"
         cur.execute(query, params)
         conn.commit()
-        print(f"✅ Task {task_id} updated.")
+        print(f"Task {task_id} updated.")
         return True
     except Exception as e:
-        print(f"❌ Error updating task {task_id}: {e}")
+        print(f"Error updating task {task_id}: {e}")
         if conn:
             conn.rollback()
         return False
@@ -194,13 +194,13 @@ def delete_task(task_id):
         rows_affected = cur.rowcount
         conn.commit()
         if rows_affected > 0:
-            print(f"✅ Task {task_id} deleted.")
+            print(f"Task {task_id} deleted.")
             return True
         else:
-            print(f"⚠️ Task {task_id} not found.")
+            print(f"Task {task_id} not found.")
             return False
     except Exception as e:
-        print(f"❌ Error deleting task {task_id}: {e}")
+        print(f"Error deleting task {task_id}: {e}")
         if conn:
             conn.rollback()
         return False
@@ -277,157 +277,11 @@ def search_tasks(keyword, search_fields=['title', 'description']):
         
         cur.execute(query, params)
         tasks_list = cur.fetchall()
-        print(f"✅ Found {len(tasks_list)} tasks matching '{keyword}'")
+        print(f"Found {len(tasks_list)} tasks matching '{keyword}'")
         return tasks_list
     except Exception as e:
-        print(f"❌ Error searching tasks: {e}")
+        print(f"Error searching tasks: {e}")
         return []
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-def get_overdue_tasks():
-    """
-    Get tasks that are overdue (due_date < today and status is pending).
-    
-    Returns:
-        list: List of overdue tasks
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, title, description, status, due_date, created_at 
-            FROM tasks 
-            WHERE status = 'pending' AND due_date < CURRENT_DATE
-            ORDER BY due_date ASC
-        """)
-        tasks_list = cur.fetchall()
-        print(f"✅ Found {len(tasks_list)} overdue tasks")
-        return tasks_list
-    except Exception as e:
-        print(f"❌ Error retrieving overdue tasks: {e}")
-        return []
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-def get_tasks_due_today():
-    """
-    Get tasks that are due today.
-    
-    Returns:
-        list: List of tasks due today
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, title, description, status, due_date, created_at 
-            FROM tasks 
-            WHERE due_date = CURRENT_DATE
-            ORDER BY created_at DESC
-        """)
-        tasks_list = cur.fetchall()
-        print(f"✅ Found {len(tasks_list)} tasks due today")
-        return tasks_list
-    except Exception as e:
-        print(f"❌ Error retrieving tasks due today: {e}")
-        return []
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-def get_upcoming_tasks(days=7):
-    """
-    Get tasks due within the next specified number of days.
-    
-    Args:
-        days (int): Number of days to look ahead
-    
-    Returns:
-        list: List of upcoming tasks
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("""
-            SELECT id, title, description, status, due_date, created_at 
-            FROM tasks 
-            WHERE due_date BETWEEN CURRENT_DATE AND CURRENT_DATE + INTERVAL '%s days'
-            ORDER BY due_date ASC
-        """, (days,))
-        tasks_list = cur.fetchall()
-        print(f"✅ Found {len(tasks_list)} tasks due in the next {days} days")
-        return tasks_list
-    except Exception as e:
-        print(f"❌ Error retrieving upcoming tasks: {e}")
-        return []
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-def get_task_statistics():
-    """
-    Get statistics about tasks.
-    
-    Returns:
-        dict: Dictionary containing task statistics
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        
-        # Get total tasks count
-        cur.execute("SELECT COUNT(*) FROM tasks")
-        total_tasks = cur.fetchone()[0]
-        
-        # Get pending tasks count
-        cur.execute("SELECT COUNT(*) FROM tasks WHERE status = 'pending'")
-        pending_tasks = cur.fetchone()[0]
-        
-        # Get completed tasks count
-        cur.execute("SELECT COUNT(*) FROM tasks WHERE status = 'completed'")
-        completed_tasks = cur.fetchone()[0]
-        
-        # Get overdue tasks count
-        cur.execute("SELECT COUNT(*) FROM tasks WHERE status = 'pending' AND due_date < CURRENT_DATE")
-        overdue_tasks = cur.fetchone()[0]
-        
-        # Get tasks due today count
-        cur.execute("SELECT COUNT(*) FROM tasks WHERE due_date = CURRENT_DATE")
-        due_today_tasks = cur.fetchone()[0]
-        
-        stats = {
-            'total_tasks': total_tasks,
-            'pending_tasks': pending_tasks,
-            'completed_tasks': completed_tasks,
-            'overdue_tasks': overdue_tasks,
-            'due_today_tasks': due_today_tasks,
-            'completion_rate': (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
-        }
-        
-        print("✅ Retrieved task statistics")
-        return stats
-    except Exception as e:
-        print(f"❌ Error retrieving task statistics: {e}")
-        return {}
     finally:
         if cur:
             cur.close()
@@ -439,7 +293,7 @@ if __name__ == "__main__":
     # Test the module functions
     from db.database import init_db
     
-    print("🧪 Testing tasks module...")
+    print("Testing tasks module...")
     
     # Initialize database
     init_db()
@@ -476,11 +330,6 @@ if __name__ == "__main__":
     search_results = search_tasks("test")
     print(f"Search found {len(search_results)} tasks")
     
-    # Test statistics
-    print("\n7. Testing get_task_statistics...")
-    stats = get_task_statistics()
-    print(f"Statistics: {stats}")
-    
     # Test cleanup
     print("\n8. Testing delete_task...")
     if task1_id:
@@ -490,4 +339,4 @@ if __name__ == "__main__":
     if task3_id:
         delete_task(task3_id)
     
-    print("\n✅ All tests completed!")
+    print("\nAll tests completed!")
