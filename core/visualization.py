@@ -32,12 +32,12 @@ def status_chart(tasks_list):
     
     return figure_to_image()
 
-def due_date_chart(tasks_list):  # FIXED: Changed all_tasks to tasks_list
+def due_date_chart(tasks_list):
     """Bar chart of due dates"""
     today = datetime.now().date()
     counts = {'Overdue': 0, 'This Week': 0, 'Later': 0, 'No Date': 0}
     
-    for task in tasks_list:  # FIXED: Changed all_tasks to tasks_list
+    for task in tasks_list:
         due_date = task[4]
         
         if not due_date:
