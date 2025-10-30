@@ -6,337 +6,133 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from core.merge_sort import sort_tasks
 
-def add_task(title, description=None, due_date=None):
-    """
-    Add a new task to the database.
+def run_query(query, params=(), fetch=False):
+    conn = get_connection()
+    cur = conn.cursor()
     
-    Args:
-        title (str): Task title (required)
-        description (str, optional): Task description
-        due_date (datetime.date, optional): Due date for the task
-    
-    Returns:
-        int: Task ID if successful, None if failed
-    """
-    conn = None
-    cur = None
     try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "INSERT INTO tasks (title, description, due_date, status) VALUES (%s, %s, %s, %s) RETURNING id",
-            (title, description, due_date, 'pending')
-        )
-        task_id = cur.fetchone()[0]
+        cur.execute(query, params)
+        if fetch:
+            result = cur.fetchall()
+        else:
+            result = cur.fetchone() if 'RETURNING' in query else None
+        
         conn.commit()
-        print(f"Task added with ID: {task_id}")
-        return task_id
+        return result
     except Exception as e:
-        print(f"Error adding task: {e}")
-        if conn:
-            conn.rollback()
+        print(f"Database error: {e}")
+        conn.rollback()
         return None
     finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+        cur.close()
+        conn.close()
 
+def add_task(title, description=None, due_date=None):
+    """Add a new task"""
+    result = run_query(
+        "INSERT INTO tasks (title, description, due_date, status) VALUES (%s, %s, %s, %s) RETURNING id",
+        (title, description, due_date, 'pending')
+    )
+    
+    if result:
+        print(f"Task added with ID: {result[0]}")
+        return result[0]
+    return None
 
 def list_tasks(status=None, sort_by='due_date', ascending=True):
-    """
-    Retrieve tasks from the database with optional filtering and sorting.
+    """Get all tasks with optional filtering and sorting"""
+    query = "SELECT id, title, description, status, due_date, created_at FROM tasks"
+    params = ()
     
-    Args:
-        status (str, optional): Filter by status ('pending', 'completed')
-        sort_by (str): Field to sort by ('due_date', 'created_at', 'title', 'status', 'id')
-        ascending (bool): Sort order (True for ascending, False for descending)
+    if status:
+        query += " WHERE status = %s"
+        params = (status,)
     
-    Returns:
-        list: List of task tuples (id, title, description, status, due_date, created_at)
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        query = "SELECT id, title, description, status, due_date, created_at FROM tasks"
-        params = ()
-        if status:
-            query += " WHERE status = %s"
-            params = (status,)
-        
-        # Execute query without ORDER BY since we'll use our algorithm
-        cur.execute(query, params)
-        tasks_list = cur.fetchall()
-        
-        # Sort tasks using our merge sort algorithm
-        sorted_tasks = sort_tasks(tasks_list, sort_by=sort_by, ascending=ascending)
-        
-        print(f"Retrieved {len(sorted_tasks)} tasks sorted by {sort_by} ({'ascending' if ascending else 'descending'})")
-        return sorted_tasks
-    except Exception as e:
-        print(f"Error listing tasks: {e}")
-        return []
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+    tasks = run_query(query, params, fetch=True) or []
+    sorted_tasks = sort_tasks(tasks, sort_by=sort_by, ascending=ascending)
+    
+    print(f"Found {len(sorted_tasks)} tasks")
+    return sorted_tasks
 
 def get_task(task_id):
-    """
-    Retrieve a single task by ID.
+    """Get a single task by ID"""
+    task = run_query(
+        "SELECT id, title, description, status, due_date, created_at FROM tasks WHERE id = %s",
+        (task_id,),
+        fetch=True
+    )
     
-    Args:
-        task_id (int): The ID of the task to retrieve
-    
-    Returns:
-        tuple: Task tuple (id, title, description, status, due_date, created_at) or None if not found
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute(
-            "SELECT id, title, description, status, due_date, created_at FROM tasks WHERE id = %s",
-            (task_id,)
-        )
-        task = cur.fetchone()
-        if task:
-            print(f"Retrieved task {task_id}")
-        else:
-            print(f"Task {task_id} not found")
-        return task
-    except Exception as e:
-        print(f"Error retrieving task {task_id}: {e}")
+    if task:
+        print(f"Retrieved task {task_id}")
+        return task[0]  # Return first result
+    else:
+        print(f"Task {task_id} not found")
         return None
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
 
-def update_task(task_id, title=None, description=None, status=None, due_date=None):
-    """
-    Update an existing task.
-    
-    Args:
-        task_id (int): The ID of the task to update
-        title (str, optional): New title
-        description (str, optional): New description
-        status (str, optional): New status ('pending', 'completed')
-        due_date (datetime.date, optional): New due date
-    
-    Returns:
-        bool: True if successful, False if failed
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        updates = []
-        params = []
-        
-        # Build dynamic update query based on provided fields
-        if title is not None:
-            updates.append("title = %s")
-            params.append(title)
-        if description is not None:
-            updates.append("description = %s")
-            params.append(description)
-        if status is not None:
-            updates.append("status = %s")
-            params.append(status)
-        if due_date is not None:
-            updates.append("due_date = %s")
-            params.append(due_date)
-            
-        if not updates:
-            print("No fields to update.")
-            return False
-            
-        params.append(task_id)
-        query = f"UPDATE tasks SET {', '.join(updates)} WHERE id = %s"
-        cur.execute(query, params)
-        conn.commit()
-        print(f"Task {task_id} updated.")
-        return True
-    except Exception as e:
-        print(f"Error updating task {task_id}: {e}")
-        if conn:
-            conn.rollback()
+def update_task(task_id, **updates):
+    """Update task fields"""
+    if not updates:
+        print("No fields to update")
         return False
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+    
+    # Build update query dynamically
+    set_clause = ", ".join([f"{key} = %s" for key in updates.keys()])
+    params = list(updates.values()) + [task_id]
+    
+    success = run_query(
+        f"UPDATE tasks SET {set_clause} WHERE id = %s",
+        params
+    )
+    
+    if success is not None:
+        print(f"Task {task_id} updated")
+        return True
+    return False
 
 def delete_task(task_id):
-    """
-    Delete a task from the database.
+    """Delete a task"""
+    success = run_query("DELETE FROM tasks WHERE id = %s", (task_id,))
     
-    Args:
-        task_id (int): The ID of the task to delete
-    
-    Returns:
-        bool: True if successful, False if failed
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        cur.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
-        rows_affected = cur.rowcount
-        conn.commit()
-        if rows_affected > 0:
-            print(f"Task {task_id} deleted.")
-            return True
-        else:
-            print(f"Task {task_id} not found.")
-            return False
-    except Exception as e:
-        print(f"Error deleting task {task_id}: {e}")
-        if conn:
-            conn.rollback()
-        return False
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
-
-def get_tasks_by_status(status):
-    """
-    Get all tasks with a specific status.
-    
-    Args:
-        status (str): Status to filter by ('pending', 'completed')
-    
-    Returns:
-        list: List of tasks with the specified status
-    """
-    return list_tasks(status=status)
+    if success is not None:
+        print(f"Task {task_id} deleted")
+        return True
+    print(f"Task {task_id} not found")
+    return False
 
 def get_pending_tasks():
-    """
-    Get all pending tasks.
-    
-    Returns:
-        list: List of pending tasks
-    """
-    return get_tasks_by_status('pending')
+    """Get all pending tasks"""
+    return list_tasks(status='pending')
 
 def get_completed_tasks():
-    """
-    Get all completed tasks.
-    
-    Returns:
-        list: List of completed tasks
-    """
-    return get_tasks_by_status('completed')
+    """Get all completed tasks"""
+    return list_tasks(status='completed')
 
-def search_tasks(keyword, search_fields=['title', 'description']):
+def search_tasks(keyword):
+    """Search tasks by keyword"""
+    query = """
+        SELECT id, title, description, status, due_date, created_at 
+        FROM tasks 
+        WHERE title ILIKE %s OR description ILIKE %s
     """
-    Search tasks by keyword in specified fields.
     
-    Args:
-        keyword (str): Search keyword
-        search_fields (list): Fields to search in ['title', 'description']
-    
-    Returns:
-        list: List of matching tasks
-    """
-    conn = None
-    cur = None
-    try:
-        conn = get_connection()
-        cur = conn.cursor()
-        
-        # Build search conditions
-        conditions = []
-        params = []
-        for field in search_fields:
-            if field in ['title', 'description']:
-                conditions.append(f"{field} ILIKE %s")
-                params.append(f"%{keyword}%")
-        
-        if not conditions:
-            return []
-            
-        query = f"""
-            SELECT id, title, description, status, due_date, created_at 
-            FROM tasks 
-            WHERE {' OR '.join(conditions)}
-            ORDER BY created_at DESC
-        """
-        
-        cur.execute(query, params)
-        tasks_list = cur.fetchall()
-        print(f"Found {len(tasks_list)} tasks matching '{keyword}'")
-        return tasks_list
-    except Exception as e:
-        print(f"Error searching tasks: {e}")
-        return []
-    finally:
-        if cur:
-            cur.close()
-        if conn:
-            conn.close()
+    tasks = run_query(query, (f"%{keyword}%", f"%{keyword}%"), fetch=True) or []
+    print(f"Found {len(tasks)} tasks matching '{keyword}'")
+    return tasks
 
-# Test function when run directly
+# Test the module
 if __name__ == "__main__":
-    # Test the module functions
     from db.database import init_db
     
     print("Testing tasks module...")
-    
-    # Initialize database
     init_db()
     
-    # Test adding tasks
-    print("\n1. Testing add_task...")
-    task1_id = add_task("Test Task 1", "This is a test task", "2024-12-31")
-    task2_id = add_task("Test Task 2", "Another test task", "2024-11-15")
-    task3_id = add_task("Test Task 3 - No due date")
+    # Simple test cases
+    task_id = add_task("Simple Test Task", "Test description", "2024-12-31")
     
-    # Test listing tasks
-    print("\n2. Testing list_tasks...")
-    all_tasks = list_tasks()
-    print(f"Found {len(all_tasks)} tasks")
+    if task_id:
+        get_task(task_id)
+        update_task(task_id, status='completed')
+        search_tasks("test")
+        delete_task(task_id)
     
-    # Test sorting
-    print("\n3. Testing sorting...")
-    tasks_by_title = list_tasks(sort_by='title', ascending=True)
-    tasks_by_due_date = list_tasks(sort_by='due_date', ascending=False)
-    
-    # Test updating task
-    print("\n4. Testing update_task...")
-    if task1_id:
-        update_task(task1_id, status='completed')
-    
-    # Test getting single task
-    print("\n5. Testing get_task...")
-    if task1_id:
-        task = get_task(task1_id)
-        print(f"Retrieved task: {task}")
-    
-    # Test search
-    print("\n6. Testing search_tasks...")
-    search_results = search_tasks("test")
-    print(f"Search found {len(search_results)} tasks")
-    
-    # Test cleanup
-    print("\n8. Testing delete_task...")
-    if task1_id:
-        delete_task(task1_id)
-    if task2_id:
-        delete_task(task2_id)
-    if task3_id:
-        delete_task(task3_id)
-    
-    print("\nAll tests completed!")
+    print("Test completed!")
